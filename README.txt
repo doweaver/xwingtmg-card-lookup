@@ -1,0 +1,1 @@
+Initial configuration: https://www.prisma.io/docs/guides/deployment/deployment-guides/deploying-to-cloudflare-workers
