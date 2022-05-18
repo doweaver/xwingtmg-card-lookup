@@ -11,14 +11,111 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Log {
-  id      String @id @default(uuid())
-  level   Level
-  message String
+model Ship {
+  id      String  @id @default(uuid())
+  name    String  @unique
+  // maneuvers Maneuver[] // I don't know how we want to handle custom types here, because what I want is a {ManeueverType, Difficulty} tuple, e.g. {"5K", "Red"}
+  // If we ever hit the case of a chassis having different hull/shields (1.0 YT-1300), we'd have to move these to the pilot
+  hull    Int
+  shields Int
+  // arcs Arc[] // Same as maneuevers - I want tuples and I don't know the right way to do it with typing, e.g. [{"front", "2'}, {"bullseye", "3'}]
+  pilots  Pilot[]
 }
 
-enum Level {
-  Info
-  Warn
-  Error
+model ShipAbility {
+  id    String  @id @default(uuid())
+  name  String
+  text  String
+  Pilot Pilot[]
+}
+
+model Pilot {
+  id             String        @id @default(uuid())
+  faction        String
+  shipId         String
+  ship           Ship          @relation(fields: [shipId], references: [id])
+  name           String
+  subtitle       String
+  initiative     Int
+  force          Int // XWS has this as a bag with the force and forceRecover packed... I don't have a gut sense of what I like better but split out for stronger typing for now
+  forceRecover   Int
+  charges        Int // Same as force, packed in XWS
+  chargesRecover Int
+  limit          Int // Fighting my inner pedant here - more technically correct feels like a "limited" boolean and then a nullable "limit" int, but a limit of 0 accomplishes the same
+  pilotAbility   String
+  shipAbilityId  String
+  shipAbility    ShipAbility   @relation(fields: [shipAbilityId], references: [id])
+  PilotPoints    PilotPoints[]
+
+  @@unique([faction, name, subtitle])
+}
+
+model Upgrade {
+  id    String        @id @default(uuid())
+  name  String
+  types UpgradeType[]
+  text  String
+
+  @@unique([name, types])
+  PilotPoints   PilotPoints?    @relation(fields: [pilotPointsId], references: [id])
+  pilotPointsId String?
+  UpgradePoints UpgradePoints[]
+}
+
+model PointsEnvironment {
+  id             String          @id @default(uuid())
+  releaseDate    DateTime?
+  effectiveDate  DateTime?
+  source         String
+  version        String?
+  pilotsPoints   PilotPoints[]
+  upgradesPoints UpgradePoints[]
+}
+
+model PilotPoints {
+  id                  String            @id @default(uuid())
+  pointsEnvironmentId String
+  pointsEnvironment   PointsEnvironment @relation(fields: [pointsEnvironmentId], references: [id])
+  pilotId             String
+  pilot               Pilot             @relation(fields: [pilotId], references: [id])
+  cost                Int
+  loadoutValue        Int
+  upgradeBar          Upgrade[]
+  keywords            Keyword[]
+  inStandard          Boolean
+  inExtended          Boolean
+
+  @@unique([pointsEnvironmentId, pilotId])
+}
+
+model UpgradePoints {
+  pointsEnvironmentId String
+  pointsEnvironment   PointsEnvironment @relation(fields: [pointsEnvironmentId], references: [id])
+  upgradeId           String
+  upgrade             Upgrade           @relation(fields: [upgradeId], references: [id])
+  cost                Int
+  restrictions        Restriction[]
+  inStandard          Boolean
+  inExtended          Boolean
+
+  @@unique([pointsEnvironmentId, upgradeId])
+}
+
+//
+// This feels annoying and fiddly, but better than typing "Imperial" everywhere and not catching the time you accidentally
+// typed "Impreial"
+//
+enum Keyword {
+  Imperial
+}
+
+//
+// Wait - are Restrictions and Keywords the same set? Yes?
+//
+enum Restriction {
+  Imperial
+}
+
+enum UpgradeType {
+  Astromech
 }
